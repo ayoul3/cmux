@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.23-alpine AS build
+FROM golang:1.24-alpine AS build
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -12,5 +12,5 @@ RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=build /app/cmux .
 RUN mkdir -p /app/db
-EXPOSE 8080
+EXPOSE 3001
 CMD ["./cmux"]

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFileBrowser } from "../hooks/useFileBrowser";
 
 interface FileBrowserProps {
@@ -7,10 +7,20 @@ interface FileBrowserProps {
 }
 
 export function FileBrowser({ onSelect, onClose }: FileBrowserProps) {
-  const [currentPath, setCurrentPath] = useState("/");
-  const { data: entries, isLoading, error } = useFileBrowser(currentPath);
+  const [currentPath, setCurrentPath] = useState<string | undefined>(undefined);
+  const { data, isLoading, error } = useFileBrowser(currentPath);
+
+  useEffect(() => {
+    if (data && !currentPath) {
+      setCurrentPath(data.path);
+    }
+  }, [data, currentPath]);
+
+  const displayPath = currentPath ?? data?.path ?? "~";
+  const entries = Array.isArray(data?.entries) ? data.entries : [];
 
   function navigateUp() {
+    if (!currentPath) return;
     const parent = currentPath.replace(/\/[^/]+\/?$/, "") || "/";
     setCurrentPath(parent);
   }
@@ -47,7 +57,7 @@ export function FileBrowser({ onSelect, onClose }: FileBrowserProps) {
           <button
             type="button"
             onClick={navigateUp}
-            disabled={currentPath === "/"}
+            disabled={displayPath === "/"}
             className="rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-white disabled:opacity-30"
             title="Go up"
           >
@@ -66,7 +76,7 @@ export function FileBrowser({ onSelect, onClose }: FileBrowserProps) {
             </svg>
           </button>
           <span className="min-w-0 flex-1 truncate text-xs font-mono text-gray-300">
-            {currentPath}
+            {displayPath}
           </span>
         </div>
 
@@ -81,7 +91,7 @@ export function FileBrowser({ onSelect, onClose }: FileBrowserProps) {
               Failed to list directory
             </div>
           )}
-          {entries && (
+          {entries.length > 0 && (
             <ul className="space-y-0.5">
               {entries
                 .filter((entry) => entry.is_dir)
@@ -89,7 +99,7 @@ export function FileBrowser({ onSelect, onClose }: FileBrowserProps) {
                   <li key={entry.name}>
                     <button
                       type="button"
-                      onClick={() => setCurrentPath(`${currentPath === "/" ? "" : currentPath}/${entry.name}`)}
+                      onClick={() => setCurrentPath(`${displayPath === "/" ? "" : displayPath}/${entry.name}`)}
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
                     >
                       <svg
@@ -123,10 +133,10 @@ export function FileBrowser({ onSelect, onClose }: FileBrowserProps) {
           </button>
           <button
             type="button"
-            onClick={() => onSelect(currentPath)}
+            onClick={() => displayPath && onSelect(displayPath)}
             className="rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-500"
           >
-            Select: {currentPath}
+            Select: {displayPath}
           </button>
         </div>
       </div>

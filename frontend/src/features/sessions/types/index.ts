@@ -9,7 +9,7 @@ export interface Session {
 }
 
 export interface CreateSessionInput {
-  name: string;
+  name?: string;
   working_dir: string;
 }
 

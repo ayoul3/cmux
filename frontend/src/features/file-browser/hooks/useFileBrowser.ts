@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { listDirectory } from "../services/filesystem-api";
 
-export function useFileBrowser(path: string) {
+export function useFileBrowser(path?: string) {
   return useQuery({
-    queryKey: ["filesystem", path],
+    queryKey: ["filesystem", path ?? "home"],
     queryFn: () => listDirectory(path),
   });
 }
