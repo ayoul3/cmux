@@ -69,6 +69,33 @@ export function Terminal({ sessionId, wsBaseUrl }: TerminalProps) {
       fitAddon.fit();
 
       const currentTerm = term;
+      const encoder = new TextEncoder();
+
+      // Respond to kitty keyboard protocol queries from Claude Code.
+      // When Claude Code starts, it queries/enables the kitty protocol via CSI sequences.
+      // xterm.js doesn't support it natively, so we intercept and respond manually.
+      // This tells Claude Code that Shift+Enter will arrive as \x1b[13;2u.
+      let kittyModeFlags = 0;
+
+      // Handle CSI ? u — kitty protocol query (Claude Code asks "do you support this?")
+      currentTerm.parser.registerCsiHandler({ prefix: "?", final: "u" }, () => {
+        if (currentWs.readyState === WebSocket.OPEN) {
+          currentWs.send(encoder.encode(`\x1b[?${kittyModeFlags}u`));
+        }
+        return false;
+      });
+
+      // Handle CSI > flags u — kitty protocol push (Claude Code enables the protocol)
+      currentTerm.parser.registerCsiHandler({ prefix: ">", final: "u" }, (params) => {
+        kittyModeFlags = (params[0] as number) ?? 1;
+        return false;
+      });
+
+      // Handle CSI < u — kitty protocol pop
+      currentTerm.parser.registerCsiHandler({ prefix: "<", final: "u" }, () => {
+        kittyModeFlags = 0;
+        return false;
+      });
 
       const wsUrl =
         wsBaseUrl ?? `ws://${window.location.hostname}:3001/ws/sessions/${sessionId}`;
@@ -95,7 +122,19 @@ export function Terminal({ sessionId, wsBaseUrl }: TerminalProps) {
         }
       };
 
-      const encoder = new TextEncoder();
+      // Intercept Shift+Enter at the DOM level (capture phase) to fully prevent
+      // xterm.js from also sending \r. Send kitty protocol escape sequence instead.
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Enter" && event.shiftKey) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (currentWs.readyState === WebSocket.OPEN) {
+            currentWs.send(encoder.encode("\x1b[13;2u"));
+          }
+        }
+      };
+      container.addEventListener("keydown", onKeyDown, true);
+
       currentTerm.onData((data) => {
         if (currentWs.readyState === WebSocket.OPEN) {
           currentWs.send(encoder.encode(data));
@@ -128,6 +167,9 @@ export function Terminal({ sessionId, wsBaseUrl }: TerminalProps) {
       term = null;
       ws = null;
     };
+
+    // Note: container event listeners are cleaned up when term.dispose()
+    // removes the terminal DOM elements, and when the container is unmounted.
 
     cleanupRef.current = cleanup;
 
