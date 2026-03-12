@@ -28,7 +28,7 @@ func (s *SessionService) CreateSession(ctx context.Context, name, workingDir str
 		return domain.Session{}, fmt.Errorf("invalid session: %w", err)
 	}
 
-	handle, err := s.processManager.Spawn(ctx, workingDir)
+	handle, err := s.processManager.Spawn(ctx, workingDir, "--session-id", session.ClaudeSessionID)
 	if err != nil {
 		return domain.Session{}, fmt.Errorf("failed to spawn process: %w", err)
 	}
@@ -39,6 +39,32 @@ func (s *SessionService) CreateSession(ctx context.Context, name, workingDir str
 	if err := s.repo.Create(ctx, session); err != nil {
 		_ = s.processManager.Kill(handle.PID)
 		return domain.Session{}, fmt.Errorf("failed to store session: %w", err)
+	}
+
+	go s.watchProcess(session.ID, handle)
+
+	return session, nil
+}
+
+func (s *SessionService) ResumeSession(ctx context.Context, id string) (domain.Session, error) {
+	session, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return domain.Session{}, err
+	}
+	if session.Status == domain.StatusRunning && s.processManager.IsAlive(session.PID) {
+		return session, nil
+	}
+
+	handle, err := s.processManager.Spawn(ctx, session.WorkingDir, "--resume", session.ClaudeSessionID)
+	if err != nil {
+		return domain.Session{}, fmt.Errorf("failed to resume process: %w", err)
+	}
+
+	session.PID = handle.PID
+	session.Status = domain.StatusRunning
+	if err := s.repo.Update(ctx, session); err != nil {
+		_ = s.processManager.Kill(handle.PID)
+		return domain.Session{}, fmt.Errorf("failed to update session: %w", err)
 	}
 
 	go s.watchProcess(session.ID, handle)

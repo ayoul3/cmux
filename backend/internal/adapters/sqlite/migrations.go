@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 	working_dir TEXT NOT NULL,
 	status TEXT NOT NULL DEFAULT 'stopped',
 	pid INTEGER DEFAULT 0,
+	claude_session_id TEXT NOT NULL DEFAULT '',
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL
 );

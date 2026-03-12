@@ -101,6 +101,26 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *SessionHandler) Resume(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	session, err := h.service.ResumeSession(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sessionResponse{
+		ID:         session.ID,
+		Name:       session.Name,
+		WorkingDir: session.WorkingDir,
+		Status:     string(session.Status),
+		PID:        session.PID,
+		CreatedAt:  session.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:  session.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+	})
+}
+
 func (h *SessionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.service.DeleteSession(r.Context(), id); err != nil {

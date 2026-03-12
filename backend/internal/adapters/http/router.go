@@ -16,7 +16,7 @@ func NewRouter(sessionService *app.SessionService, fileBrowser ports.FileBrowser
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3001"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Content-Type"},
 		AllowCredentials: true,
@@ -30,6 +30,7 @@ func NewRouter(sessionService *app.SessionService, fileBrowser ports.FileBrowser
 		r.Get("/sessions", sessionHandler.List)
 		r.Post("/sessions", sessionHandler.Create)
 		r.Get("/sessions/{id}", sessionHandler.Get)
+		r.Post("/sessions/{id}/resume", sessionHandler.Resume)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
 		r.Get("/fs", fsHandler.ListDirectory)
 	})
