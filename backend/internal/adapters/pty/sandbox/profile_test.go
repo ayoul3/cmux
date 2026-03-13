@@ -28,8 +28,8 @@ func TestBuildBasicProfile(t *testing.T) {
 		"(allow process-fork)",
 		`(allow file-read* (subpath (param "WORKING_DIR")))`,
 		`(allow file-write* (subpath (param "WORKING_DIR")))`,
-		`(allow file-write* (home-subpath "/.claude"))`,
-		`(allow file-read* (home-subpath "/.claude"))`,
+		`(allow file-write* (subpath (string-append (param "HOME_DIR") "/.claude")))`,
+		`(allow file-read* (subpath (string-append (param "HOME_DIR") "/.claude")))`,
 		`(allow file-write* (subpath "/dev"))`,
 		`(allow file-read* (subpath "/usr/lib"))`,
 	}
@@ -145,8 +145,8 @@ func TestBuildAutoResolvesHomeDir(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(profile, `(home-subpath "/.claude")`) {
-		t.Error("profile should contain home-subpath for claude config")
+	if !strings.Contains(profile, `(subpath (string-append (param "HOME_DIR") "/.claude"))`) {
+		t.Error("profile should contain HOME_DIR param for claude config")
 	}
 }
 

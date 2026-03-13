@@ -130,10 +130,10 @@ func buildProfile(templateFragments []string) string {
 
 	// Claude Code config — only ~/.claude and ~/.config (read/write)
 	b.WriteString("\n;; claude config (read/write)\n")
-	b.WriteString(`(allow file-read* (home-subpath "/.claude"))` + "\n")
-	b.WriteString(`(allow file-write* (home-subpath "/.claude"))` + "\n")
-	b.WriteString(`(allow file-read* (home-subpath "/.config"))` + "\n")
-	b.WriteString(`(allow file-write* (home-subpath "/.config"))` + "\n")
+	b.WriteString(`(allow file-read* (subpath (string-append (param "HOME_DIR") "/.claude")))` + "\n")
+	b.WriteString(`(allow file-write* (subpath (string-append (param "HOME_DIR") "/.claude")))` + "\n")
+	b.WriteString(`(allow file-read* (subpath (string-append (param "HOME_DIR") "/.config")))` + "\n")
+	b.WriteString(`(allow file-write* (subpath (string-append (param "HOME_DIR") "/.config")))` + "\n")
 
 	// Template fragments (additional access rules)
 	for _, fragment := range templateFragments {
