@@ -46,6 +46,7 @@ func (s *SessionService) CreateSession(ctx context.Context, name, workingDir, te
 	session.PID = handle.PID
 	session.Status = domain.StatusRunning
 	session.TemplateID = templateID
+	session.SkipPermissions = skipPermissions
 
 	if err := s.repo.Create(ctx, session); err != nil {
 		_ = s.processManager.Kill(handle.PID)
@@ -98,7 +99,11 @@ func (s *SessionService) ResumeSession(ctx context.Context, id string) (domain.S
 	// Reapply the sandbox template that was used when the session was created
 	s.applySandboxContent(ctx, session.TemplateID)
 
-	handle, err := s.processManager.Spawn(ctx, session.WorkingDir, "--resume", session.ClaudeSessionID)
+	args := []string{"--resume", session.ClaudeSessionID}
+	if session.SkipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
+	}
+	handle, err := s.processManager.Spawn(ctx, session.WorkingDir, args...)
 	if err != nil {
 		return domain.Session{}, fmt.Errorf("failed to resume process: %w", err)
 	}

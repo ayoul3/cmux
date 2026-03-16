@@ -5,6 +5,7 @@ export interface Session {
   status: "running" | "stopped";
   pid: number;
   template_id: string;
+  skip_permissions: boolean;
   created_at: string;
   updated_at: string;
 }

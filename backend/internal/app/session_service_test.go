@@ -459,6 +459,93 @@ func TestResumeSession_AlreadyRunning(t *testing.T) {
 	}
 }
 
+func TestCreateSession_StoresSkipPermissions(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockProcessManager()
+	svc := NewSessionService(repo, pm, nil)
+
+	session, err := svc.CreateSession(context.Background(), "test", "/tmp", "", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !session.SkipPermissions {
+		t.Error("expected SkipPermissions to be true")
+	}
+
+	stored, err := repo.Get(context.Background(), session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !stored.SkipPermissions {
+		t.Error("expected stored SkipPermissions to be true")
+	}
+}
+
+func TestResumeSession_ReappliesSkipPermissions(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockProcessManager()
+	svc := NewSessionService(repo, pm, nil)
+
+	// Create session with skip permissions
+	session, err := svc.CreateSession(context.Background(), "test", "/tmp", "", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Simulate process death
+	delete(pm.alive, session.PID)
+	session.Status = domain.StatusStopped
+	_ = repo.Update(context.Background(), session)
+
+	// Resume
+	_, err = svc.ResumeSession(context.Background(), session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify --dangerously-skip-permissions was passed
+	found := false
+	for _, arg := range pm.spawnArgs {
+		if arg == "--dangerously-skip-permissions" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected --dangerously-skip-permissions in resume spawn args, got %v", pm.spawnArgs)
+	}
+}
+
+func TestResumeSession_NoSkipPermissionsWhenNotSet(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockProcessManager()
+	svc := NewSessionService(repo, pm, nil)
+
+	// Create session without skip permissions
+	session, err := svc.CreateSession(context.Background(), "test", "/tmp", "", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Simulate process death
+	delete(pm.alive, session.PID)
+	session.Status = domain.StatusStopped
+	_ = repo.Update(context.Background(), session)
+
+	// Resume
+	_, err = svc.ResumeSession(context.Background(), session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify --dangerously-skip-permissions was NOT passed
+	for _, arg := range pm.spawnArgs {
+		if arg == "--dangerously-skip-permissions" {
+			t.Errorf("did not expect --dangerously-skip-permissions in resume spawn args, got %v", pm.spawnArgs)
+		}
+	}
+}
+
 func TestResumeSession_NotFound(t *testing.T) {
 	repo := newMockRepo()
 	pm := newMockProcessManager()

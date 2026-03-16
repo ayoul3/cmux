@@ -23,6 +23,7 @@ type Session struct {
 	PID             int
 	ClaudeSessionID string
 	TemplateID      string
+	SkipPermissions bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

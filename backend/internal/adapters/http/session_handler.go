@@ -12,14 +12,15 @@ import (
 
 func toSessionResponse(s domain.Session) sessionResponse {
 	return sessionResponse{
-		ID:         s.ID,
-		Name:       s.Name,
-		WorkingDir: s.WorkingDir,
-		Status:     string(s.Status),
-		PID:        s.PID,
-		TemplateID: s.TemplateID,
-		CreatedAt:  s.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:  s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:              s.ID,
+		Name:            s.Name,
+		WorkingDir:      s.WorkingDir,
+		Status:          string(s.Status),
+		PID:             s.PID,
+		TemplateID:      s.TemplateID,
+		SkipPermissions: s.SkipPermissions,
+		CreatedAt:       s.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:       s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
 
@@ -39,14 +40,15 @@ type createSessionRequest struct {
 }
 
 type sessionResponse struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	WorkingDir string `json:"working_dir"`
-	Status     string `json:"status"`
-	PID        int    `json:"pid"`
-	TemplateID string `json:"template_id"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	WorkingDir      string `json:"working_dir"`
+	Status          string `json:"status"`
+	PID             int    `json:"pid"`
+	TemplateID      string `json:"template_id"`
+	SkipPermissions bool   `json:"skip_permissions"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 }
 
 func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
