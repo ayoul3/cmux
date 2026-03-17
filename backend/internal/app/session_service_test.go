@@ -556,3 +556,123 @@ func TestResumeSession_NotFound(t *testing.T) {
 		t.Fatal("expected error for nonexistent session")
 	}
 }
+
+func TestRestartSession_RunningSession(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockSandboxProcessManager()
+	tmplRepo := newMockTemplateRepo()
+	tmpl := domain.SandboxTemplate{ID: "tmpl-1", Name: "test", Content: "(allow network-outbound)"}
+	tmplRepo.templates["tmpl-1"] = tmpl
+
+	svc := NewSessionService(repo, pm, tmplRepo)
+
+	session, err := svc.CreateSession(context.Background(), "test", "/tmp", "tmpl-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	originalPID := session.PID
+
+	// Restart while running — should kill and re-spawn
+	restarted, err := svc.RestartSession(context.Background(), session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if restarted.Status != domain.StatusRunning {
+		t.Errorf("expected status running, got %q", restarted.Status)
+	}
+
+	// Verify the original process was killed
+	found := false
+	for _, pid := range pm.killPIDs {
+		if pid == originalPID {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected original process to be killed on restart")
+	}
+
+	// Verify sandbox content was reapplied
+	if len(pm.sandboxContents) == 0 {
+		t.Fatal("expected sandbox content to be set on restart")
+	}
+	if pm.sandboxContents[0] != "(allow network-outbound)" {
+		t.Errorf("expected sandbox content '(allow network-outbound)', got %q", pm.sandboxContents[0])
+	}
+}
+
+func TestRestartSession_StoppedSession(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockSandboxProcessManager()
+	tmplRepo := newMockTemplateRepo()
+	tmpl := domain.SandboxTemplate{ID: "tmpl-1", Name: "test", Content: "(allow network-outbound)"}
+	tmplRepo.templates["tmpl-1"] = tmpl
+
+	svc := NewSessionService(repo, pm, tmplRepo)
+
+	session, err := svc.CreateSession(context.Background(), "test", "/tmp", "tmpl-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Simulate process death
+	delete(pm.alive, session.PID)
+	session.Status = domain.StatusStopped
+	_ = repo.Update(context.Background(), session)
+
+	// Clear to verify restart sets them again
+	pm.sandboxContents = nil
+
+	// Restart a stopped session — should just resume
+	restarted, err := svc.RestartSession(context.Background(), session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if restarted.Status != domain.StatusRunning {
+		t.Errorf("expected status running, got %q", restarted.Status)
+	}
+}
+
+func TestRestartSession_PicksUpUpdatedTemplate(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockSandboxProcessManager()
+	tmplRepo := newMockTemplateRepo()
+	tmpl := domain.SandboxTemplate{ID: "tmpl-1", Name: "test", Content: "(allow network-outbound)"}
+	tmplRepo.templates["tmpl-1"] = tmpl
+
+	svc := NewSessionService(repo, pm, tmplRepo)
+
+	session, err := svc.CreateSession(context.Background(), "test", "/tmp", "tmpl-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Update the template content in the repo (simulating user editing the template)
+	updatedTmpl := domain.SandboxTemplate{ID: "tmpl-1", Name: "test", Content: "(allow file-read* (subpath \"/opt\"))"}
+	tmplRepo.templates["tmpl-1"] = updatedTmpl
+
+	// Restart — should pick up the updated template
+	_, err = svc.RestartSession(context.Background(), session.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify the NEW template content was applied
+	if len(pm.sandboxContents) == 0 {
+		t.Fatal("expected sandbox content to be set on restart")
+	}
+	if pm.sandboxContents[0] != "(allow file-read* (subpath \"/opt\"))" {
+		t.Errorf("expected updated sandbox content, got %q", pm.sandboxContents[0])
+	}
+}
+
+func TestRestartSession_NotFound(t *testing.T) {
+	repo := newMockRepo()
+	pm := newMockProcessManager()
+	svc := NewSessionService(repo, pm, nil)
+
+	_, err := svc.RestartSession(context.Background(), "nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent session")
+	}
+}

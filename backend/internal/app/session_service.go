@@ -120,6 +120,23 @@ func (s *SessionService) ResumeSession(ctx context.Context, id string) (domain.S
 	return session, nil
 }
 
+func (s *SessionService) RestartSession(ctx context.Context, id string) (domain.Session, error) {
+	session, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return domain.Session{}, err
+	}
+
+	if session.Status == domain.StatusRunning && s.processManager.IsAlive(session.PID) {
+		_ = s.processManager.Kill(session.PID)
+		session.Status = domain.StatusStopped
+		if err := s.repo.Update(ctx, session); err != nil {
+			return domain.Session{}, fmt.Errorf("failed to update session: %w", err)
+		}
+	}
+
+	return s.ResumeSession(ctx, id)
+}
+
 func (s *SessionService) GetSession(ctx context.Context, id string) (domain.Session, error) {
 	return s.repo.Get(ctx, id)
 }
