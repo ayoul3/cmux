@@ -14,12 +14,16 @@ dev:
 	wait
 
 # Build
-build:
+backend:
 	cd backend && go build -o bin/cmux ./cmd/cmux
 ifeq ($(shell uname -s),Darwin)
 	codesign --force --options runtime --sign - backend/bin/cmux
 endif
+
+frontend:
 	cd frontend && npm run build
+
+build: backend frontend
 
 # Test
 test:
@@ -42,7 +46,7 @@ SERVICE_TARGET := gui/$(shell id -u)/com.corwind.cmux
 BIN_DEST     := $(HOME)/.local/bin/cmux
 DATA_DIR     := $(HOME)/.cmux
 
-install-service: build
+install-service: backend
 	@mkdir -p $(DATA_DIR)
 	@mkdir -p $(dir $(BIN_DEST))
 	cp backend/bin/cmux $(BIN_DEST)
@@ -57,7 +61,7 @@ uninstall-service:
 	-rm -f $(BIN_DEST)
 	@echo "cmux service uninstalled"
 
-restart-service: build
+restart-service: backend
 	cp backend/bin/cmux $(BIN_DEST)
 	-launchctl bootout $(SERVICE_TARGET) 2>/dev/null
 	launchctl bootstrap gui/$(shell id -u) $(PLIST_DEST)
